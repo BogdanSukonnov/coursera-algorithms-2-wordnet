@@ -9,22 +9,28 @@
  *  because a synset can have more than one hypernym
  **************************************************************************** */
 
+import edu.princeton.cs.algs4.BTree;
 import edu.princeton.cs.algs4.Digraph;
+import edu.princeton.cs.algs4.DirectedCycle;
 import edu.princeton.cs.algs4.In;
+import edu.princeton.cs.algs4.LinkedBag;
+import edu.princeton.cs.algs4.Stack;
+import edu.princeton.cs.algs4.Topological;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 public class WordNet {
 
-    private final Map<String, LinkedList<Integer>> nounMap = new HashMap<>();
+    private final BTree<String, LinkedBag<Integer>> nounTree = new BTree<>();
+
+    private final Stack<String> nounStack = new Stack<>();
 
     private final List<String> synsetList = new ArrayList<>();
 
     private final Digraph digraph;
+
+    private final SAP sap;
 
     // constructor takes the name of the two input files
     public WordNet(String synsetsFilename, String hypernymsFilename) {
@@ -35,35 +41,39 @@ public class WordNet {
 
         parseSynsetsFile(synsetsFilename);
 
-        this.digraph = new Digraph(nounMap.size());
+        this.digraph = new Digraph(nounTree.size());
+        this.sap = new SAP(this.digraph);
+
+        if (new DirectedCycle(new Digraph(this.digraph)).hasCycle() ||
+                !new Topological(new Digraph(this.digraph)).hasOrder()) {
+            throw new IllegalArgumentException();
+        }
 
         parseHypernymsFile(hypernymsFilename);
     }
 
     // returns all WordNet nouns
     public Iterable<String> nouns() {
-        return nounMap.keySet();
+        return nounStack;
     }
 
     // is the word a WordNet noun?
     public boolean isNoun(String word) {
         checkNullArgument(word);
-        return nounMap.containsKey(word);
+        return nounTree.get(word) != null;
     }
 
     // distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB) {
         checkArguments(nounA, nounB);
-        final SAP sap = new SAP(digraph);
-        return sap.length(nounMap.get(nounA), nounMap.get(nounB));
+        return sap.length(nounTree.get(nounA), nounTree.get(nounB));
     }
 
     // a synset (second field of synsets.txt) that is the common ancestor of nounA and nounB
     // in a shortest ancestral path (defined below)
     public String sap(String nounA, String nounB) {
         checkArguments(nounA, nounB);
-        final SAP sap = new SAP(digraph);
-        final int ancestor = sap.ancestor(nounMap.get(nounA), nounMap.get(nounB));
+        final int ancestor = sap.ancestor(nounTree.get(nounA), nounTree.get(nounB));
         return synsetList.get(ancestor);
     }
 
@@ -72,7 +82,7 @@ public class WordNet {
         WordNet wordnet = new WordNet("synsets.txt", "hypernyms.txt");
 
         System.out.printf("%s nouns, %s synsets \n",
-                          wordnet.nounMap.size(), wordnet.synsetList.size());
+                          wordnet.nounTree.size(), wordnet.synsetList.size());
 
         printSynsets(wordnet, "worm");
 
@@ -89,10 +99,10 @@ public class WordNet {
 
     private static void printSynsets(WordNet wordnet, String noun) {
         System.out.printf("\n%s in: \n", noun);
-        wordnet.nounMap.get(noun)
-                       .forEach(synsetIndex ->
-                                        System.out.printf("%s %s \n", synsetIndex,
-                                                          wordnet.synsetList.get(synsetIndex)));
+        wordnet.nounTree.get(noun)
+                        .forEach(synsetIndex ->
+                                         System.out.printf("%s %s \n", synsetIndex,
+                                                           wordnet.synsetList.get(synsetIndex)));
     }
 
     private void checkNullArgument(String noun) {
@@ -126,10 +136,11 @@ public class WordNet {
             String synset = fields[1];
             synsetList.add(synset);
             for (String noun : synset.split(" ")) {
-                LinkedList<Integer> nounSynsetList = nounMap.get(noun);
+                LinkedBag<Integer> nounSynsetList = nounTree.get(noun);
                 if (nounSynsetList == null) {
-                    nounSynsetList = new LinkedList<>();
-                    nounMap.put(noun, nounSynsetList);
+                    nounSynsetList = new LinkedBag<>();
+                    nounTree.put(noun, nounSynsetList);
+                    nounStack.push(noun);
                 }
                 nounSynsetList.add(synsetIndex);
             }

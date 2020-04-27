@@ -93,6 +93,7 @@ public class SAP {
     }
 
     private ShortestPath getShortestPath(Iterable<Integer> v, Iterable<Integer> w) {
+
         ShortestPath shortestPath = new ShortestPath();
         int stepCounter = 0;
         List<Integer> vNextStepNodeList = new LinkedList<>();
@@ -108,13 +109,13 @@ public class SAP {
             wAncestors.put(currW, stepCounter);
             wNextStepNodeList.add(currW);
         }
-        while (shortestPath.ancestor == -1
-                && (vNextStepNodeList.size() > 0 || wNextStepNodeList.size() > 0)) {
-            ++stepCounter;
+        while ((shortestPath.getLength() == -1 || shortestPath.getLength() > stepCounter)
+                && (!vNextStepNodeList.isEmpty() || !wNextStepNodeList.isEmpty())) {
             vNextStepNodeList = doStep(vNextStepNodeList, vAncestors, wAncestors, shortestPath,
                                        stepCounter);
             wNextStepNodeList = doStep(wNextStepNodeList, wAncestors, vAncestors, shortestPath,
                                        stepCounter);
+            ++stepCounter;
         }
         return shortestPath;
     }
@@ -122,15 +123,21 @@ public class SAP {
     private List<Integer> doStep(List<Integer> nodeList, Map<Integer, Integer> ancestors,
                                  Map<Integer, Integer> otherAncestors, ShortestPath shortestPath,
                                  int stepNumber) {
+        if (nodeList.isEmpty()) {
+            return nodeList;
+        }
         List<Integer> nextStepNodeList = new LinkedList<>();
-        for (Integer currV : nodeList) {
-            for (int ancestor : digraph.adj(currV)) {
-                if (otherAncestors.containsKey(ancestor) && (shortestPath.length == -1
-                        || otherAncestors.get(ancestor) + stepNumber < shortestPath.length)) {
-                    shortestPath.setLength(otherAncestors.get(ancestor) + stepNumber);
-                    shortestPath.setAncestor(ancestor);
+        for (Integer node : nodeList) {
+            if (otherAncestors.containsKey(node)) {
+                int currLength = otherAncestors.get(node) + stepNumber;
+                if (shortestPath.getLength() == -1 ||
+                        currLength < shortestPath.getLength()) {
+                    shortestPath.setLength(currLength);
+                    shortestPath.setAncestor(node);
                 }
-                ancestors.put(ancestor, stepNumber);
+            }
+            ancestors.put(node, stepNumber);
+            for (int ancestor : digraph.adj(node)) {
                 nextStepNodeList.add(ancestor);
             }
         }
