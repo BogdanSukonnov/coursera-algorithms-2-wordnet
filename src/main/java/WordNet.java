@@ -42,14 +42,16 @@ public class WordNet {
         parseSynsetsFile(synsetsFilename);
 
         this.digraph = new Digraph(nounTree.size());
-        this.sap = new SAP(this.digraph);
 
-        if (new DirectedCycle(new Digraph(this.digraph)).hasCycle() ||
-                !new Topological(new Digraph(this.digraph)).hasOrder()) {
+        parseHypernymsFile(hypernymsFilename);
+
+        if (new DirectedCycle(this.digraph).hasCycle() ||
+                !new Topological(this.digraph).hasOrder()) {
             throw new IllegalArgumentException();
         }
 
-        parseHypernymsFile(hypernymsFilename);
+        this.sap = new SAP(this.digraph);
+
     }
 
     // returns all WordNet nouns
